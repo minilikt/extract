@@ -35,6 +35,16 @@ const CropGifOutputSchema = z.object({
 });
 export type CropGifOutput = z.infer<typeof CropGifOutputSchema>;
 
+// Helper to convert a Readable stream to a Buffer
+function streamToBuffer(stream: Readable): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        stream.on('data', (chunk) => chunks.push(chunk));
+        stream.on('error', reject);
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+    });
+}
+
 
 export async function cropGif(input: CropGifInput): Promise<CropGifOutput> {
   return cropGifFlow(input);
@@ -62,7 +72,8 @@ const cropGifFlow = ai.defineFlow(
 
       const frameData = await gifFrames({ url: inputBuffer, frames: 'all', outputType: 'png', cumulative: true });
 
-      const { width, height } = await sharp(frameData[0].getImage().read()).metadata();
+      const firstFrameBuffer = await streamToBuffer(frameData[0].getImage());
+      const { width, height } = await sharp(firstFrameBuffer).metadata();
 
       const encoder = new GifEncoder(width!, height!);
       encoder.start();
@@ -71,7 +82,7 @@ const cropGifFlow = ai.defineFlow(
       encoder.setQuality(10); // image quality. 10 is default.
       
       for (const frame of frameData) {
-        const frameBuffer = frame.getImage().read();
+        const frameBuffer = await streamToBuffer(frame.getImage());
         const modifiedFrameBuffer = await sharp(frameBuffer)
             .composite([
                 {
@@ -83,7 +94,8 @@ const cropGifFlow = ai.defineFlow(
             .raw()
             .toBuffer();
         
-        encoder.addFrame(modifiedFrameBuffer as any);
+        const pixels = new Uint8ClampedArray(modifiedFrameBuffer);
+        encoder.addFrame(pixels as any);
       }
 
       encoder.finish();
