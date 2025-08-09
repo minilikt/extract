@@ -16,7 +16,7 @@ const CropGifInputSchema = z.object({
   gifDataUri: z
     .string()
     .describe(
-      "An animated GIF, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:image/gif;base64,<encoded_data>'."
+      "An animated GIF, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:image/gif;base64,<encoded_data>'"
     ),
   crop: z.object({
     x: z.number().describe('The x-coordinate of the top-left corner of the crop area.'),
@@ -63,7 +63,7 @@ const cropGifFlow = ai.defineFlow(
             input: whiteRectangle,
             top: crop.y,
             left: crop.x,
-            tile: false, // Ensure it's not tiled
+            tile: false, 
           },
         ])
         .gif()
