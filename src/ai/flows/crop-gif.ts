@@ -9,7 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 import sharp from 'sharp';
 
 const CropGifInputSchema = z.object({
@@ -53,13 +53,18 @@ const cropGifFlow = ai.defineFlow(
       }
       const inputBuffer = Buffer.from(base64Data, 'base64');
       
+      const whiteRectangle = Buffer.from(
+        `<svg><rect x="0" y="0" width="${crop.width}" height="${crop.height}" fill="white" /></svg>`
+      );
+
       const processedBuffer = await sharp(inputBuffer, { animated: true })
-        .extract({
-            left: crop.x,
+        .composite([
+          {
+            input: whiteRectangle,
             top: crop.y,
-            width: crop.width,
-            height: crop.height,
-        })
+            left: crop.x,
+          },
+        ])
         .gif()
         .toBuffer();
 

@@ -61,7 +61,7 @@ export default function TestPage() {
 
   async function handleProcess() {
     if (!completedCrop || !imgRef.current) {
-      toast({ title: 'No area selected', description: 'Please select an area to crop.', variant: 'destructive' });
+      toast({ title: 'No area selected', description: 'Please select an area to process.', variant: 'destructive' });
       return;
     }
     
@@ -86,7 +86,7 @@ export default function TestPage() {
       });
       if (result.croppedGifDataUri) {
           setProcessedGif(result.croppedGifDataUri);
-          toast({ title: 'Success!', description: 'Your GIF has been cropped.' });
+          toast({ title: 'Success!', description: 'Your GIF has been processed.' });
       } else {
         throw new Error("Processing returned no data.");
       }
@@ -100,7 +100,7 @@ export default function TestPage() {
 
   function handleDownloadProcessed() {
     if (!processedGif) return;
-    saveAs(processedGif, 'cropped.gif');
+    saveAs(processedGif, 'processed.gif');
   }
 
   return (
@@ -135,7 +135,7 @@ export default function TestPage() {
                 </div>
                 <Button onClick={handleProcess} disabled={isLoading || !completedCrop}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Crop Selection
+                    Replace Selection
                 </Button>
             </div>
             <div className="flex flex-col gap-4 items-center">
@@ -148,7 +148,7 @@ export default function TestPage() {
                 {!isLoading && processedGif && (
                   <Button onClick={handleDownloadProcessed} variant="outline">
                     <Download className="mr-2 h-4 w-4" />
-                    Download Cropped GIF
+                    Download Processed GIF
                   </Button>
                 )}
             </div>
