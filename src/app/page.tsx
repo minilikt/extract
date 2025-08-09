@@ -1,3 +1,220 @@
+"use client";
+
+import { useState, useMemo, type ChangeEvent } from 'react';
+import { extractMediaUrls } from '@/ai/flows/extract-media-urls';
+import { useToast } from "@/hooks/use-toast";
+import { Header } from '@/components/media-sifter/header';
+import { Controls } from '@/components/media-sifter/controls';
+import { MediaGrid } from '@/components/media-sifter/media-grid';
+
+type CsvData = {
+  headers: string[];
+  rows: Record<string, string>[];
+};
+
+type MediaItem = {
+  url: string;
+  row: Record<string, string>;
+  type: 'image' | 'gif';
+};
+
+type FilterType = 'all' | 'image' | 'gif';
+
 export default function Home() {
-  return <></>;
+  const [csvData, setCsvData] = useState<CsvData | null>(null);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [filter, setFilter] = useState<FilterType>('all');
+  const [renamePattern, setRenamePattern] = useState<string>('image-{id}');
+  const [fileName, setFileName] = useState<string | null>(null);
+
+  const { toast } = useToast();
+
+  const parseCsv = (csvText: string): CsvData => {
+    const lines = csvText.trim().split(/\r?\n/);
+    if (lines.length < 2) {
+      throw new Error("CSV must have a header and at least one data row.");
+    }
+    const headers = lines[0].split(',').map(h => h.trim());
+    const rows = lines.slice(1).map(line => {
+      // This is a simple parser. It won't handle commas within quoted fields.
+      const values = line.split(',').map(v => v.trim());
+      const row: Record<string, string> = {};
+      headers.forEach((header, i) => {
+        row[header] = values[i];
+      });
+      return row;
+    });
+    return { headers, rows };
+  };
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsLoading(true);
+    setFileName(file.name);
+    setSelectedItems(new Set());
+
+    try {
+      const fileContent = await file.text();
+      const parsedData = parseCsv(fileContent);
+      setCsvData(parsedData);
+      
+      const result = await extractMediaUrls({ csvData: fileContent });
+
+      if (!result.mediaUrls || result.mediaUrls.length === 0) {
+        toast({
+          title: "No Media Found",
+          description: "The AI could not extract any valid image or GIF URLs from the CSV.",
+          variant: "destructive"
+        });
+        setMediaItems([]);
+        return;
+      }
+      
+      const newMediaItems: MediaItem[] = [];
+      result.mediaUrls.forEach(url => {
+        const foundRow = parsedData.rows.find(row => Object.values(row).includes(url));
+        if (foundRow) {
+          const type = url.toLowerCase().endsWith('.gif') ? 'gif' : 'image';
+          newMediaItems.push({ url, row: foundRow, type });
+        }
+      });
+      setMediaItems(newMediaItems);
+
+    } catch (error) {
+      console.error("Error processing file:", error);
+      toast({
+        title: "Error",
+        description: (error as Error).message || "An unexpected error occurred while processing the file.",
+        variant: "destructive"
+      });
+      handleClear();
+    } finally {
+      setIsLoading(false);
+      // Reset file input value to allow re-uploading the same file
+      event.target.value = '';
+    }
+  };
+
+  const handleSelectionChange = (url: string) => {
+    setSelectedItems(prev => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(url)) {
+        newSelection.delete(url);
+      } else {
+        newSelection.add(url);
+      }
+      return newSelection;
+    });
+  };
+
+  const selectAll = () => {
+    if (selectedItems.size === filteredMediaItems.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredMediaItems.map(item => item.url)));
+    }
+  };
+
+  const handleDownload = async () => {
+    if (selectedItems.size === 0) {
+      toast({ title: "No items selected", description: "Please select images or GIFs to download." });
+      return;
+    }
+    
+    setIsDownloading(true);
+    toast({ title: "Starting Download...", description: `Preparing ${selectedItems.size} files for download.` });
+
+    for (const url of selectedItems) {
+      try {
+        const mediaItem = mediaItems.find(item => item.url === url);
+        if (!mediaItem) continue;
+
+        // Use a proxy to fetch to avoid CORS issues. Note: this is a placeholder.
+        // In a real app, you would set up a server-side proxy.
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = objectUrl;
+
+        const originalFileName = url.split('/').pop()?.split('?')[0] || 'download';
+        const extension = originalFileName.split('.').pop() || 'jpg';
+        
+        let newFileName = renamePattern
+          .replace(/\{([^}]+)\}/g, (match, header) => {
+            return mediaItem.row[header]?.replace(/[^a-zA-Z0-9_.-]/g, '_') || match;
+          })
+          .replace(/\s/g, '_');
+
+        link.download = `${newFileName}.${extension}`;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay between downloads
+
+      } catch (error) {
+        console.error(`Failed to download ${url}:`, error);
+        toast({
+          title: "Download Error",
+          description: `Could not download ${url.substring(0, 50)}...`,
+          variant: "destructive"
+        });
+      }
+    }
+    
+    setIsDownloading(false);
+    toast({ title: "Download Complete", description: "All selected files have been downloaded." });
+  };
+  
+  const handleClear = () => {
+    setCsvData(null);
+    setMediaItems([]);
+    setSelectedItems(new Set());
+    setFileName(null);
+  }
+
+  const filteredMediaItems = useMemo(() => {
+    if (filter === 'all') return mediaItems;
+    return mediaItems.filter(item => item.type === filter);
+  }, [mediaItems, filter]);
+
+  return (
+    <main className="container mx-auto px-4 min-h-screen flex flex-col">
+      <Header />
+      <div className="flex-grow flex flex-col gap-8 pb-8">
+        <Controls
+          onFileChange={handleFileChange}
+          onDownload={handleDownload}
+          onClear={handleClear}
+          isProcessing={isLoading || isDownloading}
+          hasMedia={mediaItems.length > 0}
+          selectedCount={selectedItems.size}
+          totalCount={filteredMediaItems.length}
+          filter={filter}
+          onFilterChange={setFilter}
+          renamePattern={renamePattern}
+          onRenamePatternChange={setRenamePattern}
+          csvHeaders={csvData?.headers || []}
+          fileName={fileName}
+          selectAll={selectAll}
+        />
+        <MediaGrid
+          items={filteredMediaItems}
+          selectedItems={selectedItems}
+          onSelectionChange={handleSelectionChange}
+          isLoading={isLoading}
+        />
+      </div>
+    </main>
+  );
 }
