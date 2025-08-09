@@ -15,7 +15,7 @@ import sharp from 'sharp';
 import gifFrames from 'gif-frames';
 import GifEncoder from 'gif-encoder-2';
 import { Readable } from 'stream';
-import { diff, closest } from 'color-diff';
+import * as colorDiff from 'color-diff';
 
 const ColorSchema = z.object({
   R: z.number().min(0).max(255),
@@ -73,7 +73,8 @@ const replaceGifColorFlow = ai.defineFlow(
       const frameData = await gifFrames({ url: inputBuffer, frames: 'all', outputType: 'png', cumulative: true });
 
       const firstFrameBuffer = await streamToBuffer(frameData[0].getImage());
-      const { width, height } = await sharp(firstFrameBuffer).metadata();
+      const metadata = await sharp(firstFrameBuffer).metadata();
+      const { width, height } = metadata;
 
       if (!width || !height) {
           throw new Error("Could not determine GIF dimensions.");
@@ -82,12 +83,13 @@ const replaceGifColorFlow = ai.defineFlow(
       const encoder = new GifEncoder(width, height, 'octree');
       encoder.start();
       encoder.setRepeat(0); 
-      encoder.setDelay(100); 
+      encoder.setDelay(frameData[0].frameInfo.delay * 10); // Use delay from first frame
       encoder.setQuality(10); 
       
       for (const frame of frameData) {
         const frameBuffer = await streamToBuffer(frame.getImage());
-        const rawBuffer = await sharp(frameBuffer).raw().toBuffer();
+        // Ensure frame has alpha channel for consistency
+        const rawBuffer = await sharp(frameBuffer).ensureAlpha().raw().toBuffer();
         
         for (let i = 0; i < rawBuffer.length; i += 4) {
             const r = rawBuffer[i];
@@ -95,8 +97,7 @@ const replaceGifColorFlow = ai.defineFlow(
             const b = rawBuffer[i + 2];
             // alpha channel is rawBuffer[i+3] - we ignore it for color diff but preserve it.
 
-            // Using CIE94 difference which is better for perceptual color differences.
-            const colorDifference = diff.cie94(sourceColor, { R: r, G: g, B: b });
+            const colorDifference = colorDiff.diff(sourceColor, { R: r, G: g, B: b });
 
             if (colorDifference < fuzz) {
                 rawBuffer[i] = targetColor.R;
@@ -105,9 +106,8 @@ const replaceGifColorFlow = ai.defineFlow(
             }
         }
         
-        // Re-attach the alpha channel to the pixel data before adding frame
-        const pixels = new Uint8ClampedArray(rawBuffer);
-        encoder.addFrame(pixels as any);
+        encoder.addFrame(rawBuffer);
+        encoder.setDelay(frame.frameInfo.delay * 10);
       }
 
       encoder.finish();
