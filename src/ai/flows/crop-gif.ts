@@ -1,9 +1,9 @@
 'use server';
 
 /**
- * @fileOverview Cuts out a selected section of an animated GIF.
+ * @fileOverview Replaces a selected section of an animated GIF with a white box.
  *
- * - cropGif - A function that handles the GIF cropping process.
+ * - cropGif - A function that handles the GIF modification process.
  * - CropGifInput - The input type for the cropGif function.
  * - CropGifOutput - The return type for the cropGif function.
  */
@@ -11,6 +11,9 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 import sharp from 'sharp';
+import gifFrames from 'gif-frames';
+import GifEncoder from 'gif-encoder-2';
+import { Readable } from 'stream';
 
 const CropGifInputSchema = z.object({
   gifDataUri: z
@@ -28,7 +31,7 @@ const CropGifInputSchema = z.object({
 export type CropGifInput = z.infer<typeof CropGifInputSchema>;
 
 const CropGifOutputSchema = z.object({
-  croppedGifDataUri: z.string().describe('The cropped GIF as a data URI.'),
+  croppedGifDataUri: z.string().describe('The processed GIF as a data URI.'),
 });
 export type CropGifOutput = z.infer<typeof CropGifOutputSchema>;
 
@@ -57,18 +60,35 @@ const cropGifFlow = ai.defineFlow(
         `<svg><rect x="0" y="0" width="${crop.width}" height="${crop.height}" fill="white" /></svg>`
       );
 
-      const processedBuffer = await sharp(inputBuffer, { animated: true })
-        .composite([
-          {
-            input: whiteRectangle,
-            top: crop.y,
-            left: crop.x,
-            tile: false, 
-          },
-        ])
-        .gif()
-        .toBuffer();
+      const frameData = await gifFrames({ url: inputBuffer, frames: 'all', outputType: 'png', cumulative: true });
 
+      const { width, height } = await sharp(frameData[0].getImage().read()).metadata();
+
+      const encoder = new GifEncoder(width!, height!);
+      encoder.start();
+      encoder.setRepeat(0); // 0 for repeat, -1 for no-repeat
+      encoder.setDelay(100); // frame delay in ms
+      encoder.setQuality(10); // image quality. 10 is default.
+      
+      for (const frame of frameData) {
+        const frameBuffer = frame.getImage().read();
+        const modifiedFrameBuffer = await sharp(frameBuffer)
+            .composite([
+                {
+                    input: whiteRectangle,
+                    top: crop.y,
+                    left: crop.x,
+                },
+            ])
+            .raw()
+            .toBuffer();
+        
+        encoder.addFrame(modifiedFrameBuffer as any);
+      }
+
+      encoder.finish();
+      const processedBuffer = encoder.out.getData();
+      
       const croppedGifDataUri = `data:image/gif;base64,${processedBuffer.toString('base64')}`;
 
       return { croppedGifDataUri };
