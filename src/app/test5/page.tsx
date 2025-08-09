@@ -18,6 +18,7 @@ type GifFile = {
   name: string;
   originalSrc: string;
   processedSrc: string | null;
+  isLoading: boolean;
 }
 
 const hexToRgb = (hex: string) => {
@@ -52,6 +53,7 @@ export default function ColorReplacerTestPage() {
               name: file.name,
               originalSrc: event.target?.result?.toString() || '',
               processedSrc: null,
+              isLoading: false,
             });
           };
           reader.onerror = reject;
@@ -76,33 +78,31 @@ export default function ColorReplacerTestPage() {
     setIsLoading(true);
     toast({ title: 'Processing started...', description: `Replacing colors for ${gifFiles.length} GIFs.` });
 
-    const processingPromises = gifFiles.map(async (file, index) => {
-      // Don't re-process if it already has a result
-      if (file.processedSrc) return file;
+    for (const file of gifFiles) {
+        if (file.processedSrc) continue;
 
-      try {
-        const result = await replaceGifColor({
-          gifDataUri: file.originalSrc,
-          sourceColor: hexToRgb(sourceColor),
-          targetColor: hexToRgb(targetColor),
-          fuzz: fuzz
-        });
+        setGifFiles(prev => prev.map(f => f.id === file.id ? { ...f, isLoading: true } : f));
 
-        if (result.processedGifDataUri) {
-          return { ...file, processedSrc: result.processedGifDataUri };
-        } else {
-          throw new Error("Processing returned no data.");
+        try {
+            const result = await replaceGifColor({
+                gifDataUri: file.originalSrc,
+                sourceColor: hexToRgb(sourceColor),
+                targetColor: hexToRgb(targetColor),
+                fuzz: fuzz
+            });
+
+            if (result.processedGifDataUri) {
+                setGifFiles(prev => prev.map(f => f.id === file.id ? { ...f, processedSrc: result.processedGifDataUri, isLoading: false } : f));
+            } else {
+                throw new Error("Processing returned no data.");
+            }
+        } catch (error) {
+            console.error(`Error processing GIF ${file.name}:`, error);
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+            toast({ title: `Processing Failed for ${file.name}`, description: `${errorMessage}`, variant: "destructive" });
+            setGifFiles(prev => prev.map(f => f.id === file.id ? { ...f, isLoading: false } : f));
         }
-      } catch (error) {
-        console.error(`Error processing GIF ${file.name}:`, error);
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        toast({ title: `Processing Failed for ${file.name}`, description: `${errorMessage}`, variant: "destructive" });
-        return file; // Return original file data on error
-      }
-    });
-
-    const results = await Promise.all(processingPromises);
-    setGifFiles(results);
+    }
     
     setIsLoading(false);
     toast({ title: 'Success!', description: 'All GIFs have been processed.' });
@@ -152,7 +152,8 @@ export default function ColorReplacerTestPage() {
                 </Button>
                  {gifFiles.length > 0 && (
                      <Button onClick={handleClear} variant="destructive" size="icon" className="w-full sm:w-auto">
-                        <Trash2 className="mr-2" /> Clear All ({gifFiles.length})
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Clear All</span>
                      </Button>
                 )}
             </div>
@@ -241,8 +242,8 @@ export default function ColorReplacerTestPage() {
               <h2 className="text-2xl font-bold mb-4 text-center">Processed GIFs</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                    {gifFiles.map((file) => (
-                      <div key={file.id} className="p-2 bg-card rounded-lg border shadow-sm flex flex-col items-center justify-center gap-2 min-h-[10rem]">
-                         {isLoading && !file.processedSrc ? (
+                      <div key={`processed-${file.id}`} className="p-2 bg-card rounded-lg border shadow-sm flex flex-col items-center justify-center gap-2 min-h-[10rem]">
+                         {file.isLoading ? (
                             <Loader2 className="h-12 w-12 animate-spin text-primary" />
                          ) : file.processedSrc ? (
                            <img src={file.processedSrc} alt={`Processed ${file.name}`} className="max-w-full max-h-48 rounded" />

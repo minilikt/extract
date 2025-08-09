@@ -64,27 +64,28 @@ export default function AutoTestPage2() {
     setIsProcessing(true);
     toast({ title: 'Processing started...', description: `Automatically editing ${gifFiles.length} GIFs.` });
 
-    const processingPromises = gifFiles.map(async (file) => {
-      // Set loading state for the individual file
-      setGifFiles(prev => prev.map(f => f.id === file.id ? { ...f, isLoading: true } : f));
-      
-      try {
-        const result = await autoReplaceGif({ gifDataUri: file.originalSrc });
-        if (result.processedGifDataUri) {
-          return { ...file, processedSrc: result.processedGifDataUri, isLoading: false };
-        } else {
-          throw new Error("Processing returned no data.");
-        }
-      } catch (error) {
-        console.error(`Error processing GIF ${file.name}:`, error);
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        toast({ title: `Processing Failed for ${file.name}`, description: `${errorMessage}`, variant: "destructive" });
-        return { ...file, isLoading: false }; // Return original file data on error, stop loading
-      }
-    });
+    for (const file of gifFiles) {
+        // Skip already processed files
+        if(file.processedSrc) continue;
 
-    const results = await Promise.all(processingPromises);
-    setGifFiles(results);
+        // Set loading state for the individual file
+        setGifFiles(prev => prev.map(f => f.id === file.id ? { ...f, isLoading: true } : f));
+        
+        try {
+            const result = await autoReplaceGif({ gifDataUri: file.originalSrc });
+            if (result.processedGifDataUri) {
+                setGifFiles(prev => prev.map(f => f.id === file.id ? { ...f, processedSrc: result.processedGifDataUri, isLoading: false } : f));
+            } else {
+                throw new Error("Processing returned no data.");
+            }
+        } catch (error) {
+            console.error(`Error processing GIF ${file.name}:`, error);
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+            toast({ title: `Processing Failed for ${file.name}`, description: `${errorMessage}`, variant: "destructive" });
+            // Stop loading for this file on error
+            setGifFiles(prev => prev.map(f => f.id === file.id ? { ...f, isLoading: false } : f));
+        }
+    }
     
     setIsProcessing(false);
     toast({ title: 'Success!', description: 'All GIFs have been processed.' });
@@ -170,7 +171,7 @@ export default function AutoTestPage2() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                    {gifFiles.map((file) => (
                       <div key={`processed-${file.id}`} className="p-2 bg-card rounded-lg border shadow-sm flex flex-col items-center justify-center gap-2 min-h-[10rem]">
-                         {(isProcessing && file.isLoading) ? (
+                         {(file.isLoading) ? (
                             <Loader2 className="h-12 w-12 animate-spin text-primary" />
                          ) : file.processedSrc ? (
                            <img src={file.processedSrc} alt={`Processed ${file.name}`} className="max-w-full max-h-48 rounded" />
