@@ -63,6 +63,7 @@ const cropGifFlow = ai.defineFlow(
             input: whiteRectangle,
             top: crop.y,
             left: crop.x,
+            tile: false, // Ensure it's not tiled
           },
         ])
         .gif()
