@@ -86,13 +86,13 @@ export default function TestPage() {
       });
       if (result.croppedGifDataUri) {
           setCroppedGif(result.croppedGifDataUri);
-          toast({ title: 'Success!', description: 'Your GIF has been cropped.' });
+          toast({ title: 'Success!', description: 'Your GIF has been processed.' });
       } else {
-        throw new Error("Cropping returned no data.");
+        throw new Error("Processing returned no data.");
       }
     } catch (error) {
-      console.error("Error cropping GIF:", error);
-      toast({ title: "Cropping Failed", description: "The AI could not crop the GIF.", variant: "destructive" });
+      console.error("Error processing GIF:", error);
+      toast({ title: "Processing Failed", description: "The AI could not process the GIF.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -100,7 +100,7 @@ export default function TestPage() {
 
   function handleDownloadCropped() {
     if (!croppedGif) return;
-    saveAs(croppedGif, 'cropped.gif');
+    saveAs(croppedGif, 'processed.gif');
   }
 
   return (
@@ -135,20 +135,20 @@ export default function TestPage() {
                 </div>
                 <Button onClick={handleCrop} disabled={isLoading || !completedCrop}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Crop GIF
+                    Cutout Selection
                 </Button>
             </div>
             <div className="flex flex-col gap-4 items-center">
-                <h2 className="text-2xl font-bold">Cropped</h2>
+                <h2 className="text-2xl font-bold">Processed</h2>
                 <div className="p-4 bg-card rounded-lg border shadow-sm w-full h-[300px] flex items-center justify-center">
                     {isLoading && <Loader2 className="h-12 w-12 animate-spin text-primary" />}
-                    {!isLoading && croppedGif && <img alt="Cropped GIF" src={croppedGif} className="max-w-full max-h-full" />}
-                    {!isLoading && !croppedGif && <p className="text-muted-foreground">Cropped version will appear here</p>}
+                    {!isLoading && croppedGif && <img alt="Processed GIF" src={croppedGif} className="max-w-full max-h-full" />}
+                    {!isLoading && !croppedGif && <p className="text-muted-foreground">Processed version will appear here</p>}
                 </div>
                 {!isLoading && croppedGif && (
                   <Button onClick={handleDownloadCropped} variant="outline">
                     <Download className="mr-2 h-4 w-4" />
-                    Download Cropped GIF
+                    Download Processed GIF
                   </Button>
                 )}
             </div>

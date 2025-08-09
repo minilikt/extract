@@ -54,27 +54,42 @@ const cropGifFlow = ai.defineFlow(
       }
       const inputBuffer = Buffer.from(base64Data, 'base64');
       
-      // 2. Crop the image using sharp
-      const croppedBuffer = await sharp(inputBuffer, { animated: true })
-        .extract({
-          left: crop.x,
-          top: crop.y,
+      // 2. Create a transparent rectangle to overlay
+      const cutoutBuffer = await sharp({
+        create: {
           width: crop.width,
           height: crop.height,
-        })
+          channels: 4, // 4 channels for RGBA
+          background: { r: 0, g: 0, b: 0, alpha: 0 } // Fully transparent
+        }
+      })
+      .png()
+      .toBuffer();
+      
+      // 3. Composite the transparent rectangle over the GIF
+      const processedBuffer = await sharp(inputBuffer, { animated: true })
+        .composite([
+          {
+            input: cutoutBuffer,
+            left: crop.x,
+            top: crop.y,
+            blend: 'dest-in' // Using dest-in to effectively cut a hole
+          }
+        ])
         .toBuffer();
 
-      // 3. Encode the result back to a Data URI
-      const croppedGifDataUri = `data:image/gif;base64,${croppedBuffer.toString('base64')}`;
+
+      // 4. Encode the result back to a Data URI
+      const croppedGifDataUri = `data:image/gif;base64,${processedBuffer.toString('base64')}`;
 
       return { croppedGifDataUri };
 
     } catch (error) {
         console.error("Error in cropGifFlow:", error);
         if (error instanceof Error) {
-            throw new Error(`Failed to crop GIF: ${error.message}`);
+            throw new Error(`Failed to process GIF: ${error.message}`);
         }
-        throw new Error('An unknown error occurred during GIF cropping.');
+        throw new Error('An unknown error occurred during GIF processing.');
     }
   }
 );
