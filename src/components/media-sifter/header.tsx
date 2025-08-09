@@ -15,6 +15,7 @@ export function Header() {
         <Link href="/test2" className="text-sm font-medium text-muted-foreground hover:text-primary">Automatic Editor</Link>
         <Link href="/test/chat" className="text-sm font-medium text-muted-foreground hover:text-primary">Chat GIF Editor</Link>
         <Link href="/test3" className="text-sm font-medium text-muted-foreground hover:text-primary">Chat Editor 2</Link>
+        <Link href="/test5" className="text-sm font-medium text-muted-foreground hover:text-primary">Color Replacer</Link>
       </nav>
     </header>
   );
