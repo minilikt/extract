@@ -1,9 +1,9 @@
 'use server';
 
 /**
- * @fileOverview Crops an animated GIF.
+ * @fileOverview Cuts out a selected section of an animated GIF, making it transparent.
  *
- * - cropGif - A function that handles the GIF cropping process.
+ * - cropGif - A function that handles the GIF cutout process.
  * - CropGifInput - The input type for the cropGif function.
  * - CropGifOutput - The return type for the cropGif function.
  */
@@ -19,16 +19,16 @@ const CropGifInputSchema = z.object({
       "An animated GIF, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:image/gif;base64,<encoded_data>'."
     ),
   crop: z.object({
-    x: z.number().describe('The x-coordinate of the top-left corner of the crop area.'),
-    y: z.number().describe('The y-coordinate of the top-left corner of the crop area.'),
-    width: z.number().describe('The width of the crop area.'),
-    height: z.number().describe('The height of the crop area.'),
+    x: z.number().describe('The x-coordinate of the top-left corner of the cutout area.'),
+    y: z.number().describe('The y-coordinate of the top-left corner of the cutout area.'),
+    width: z.number().describe('The width of the cutout area.'),
+    height: z.number().describe('The height of the cutout area.'),
   }),
 });
 export type CropGifInput = z.infer<typeof CropGifInputSchema>;
 
 const CropGifOutputSchema = z.object({
-  croppedGifDataUri: z.string().describe('The cropped GIF as a data URI.'),
+  croppedGifDataUri: z.string().describe('The processed GIF with the cutout as a data URI.'),
 });
 export type CropGifOutput = z.infer<typeof CropGifOutputSchema>;
 
@@ -47,39 +47,33 @@ const cropGifFlow = ai.defineFlow(
     try {
       const { gifDataUri, crop } = input;
       
-      // 1. Decode the Data URI
       const base64Data = gifDataUri.split(';base64,').pop();
       if (!base64Data) {
         throw new Error('Invalid Data URI format.');
       }
       const inputBuffer = Buffer.from(base64Data, 'base64');
       
-      // 2. Create a transparent rectangle to overlay
-      const cutoutBuffer = await sharp({
+      const cutoutMask = await sharp({
         create: {
           width: crop.width,
           height: crop.height,
-          channels: 4, // 4 channels for RGBA
-          background: { r: 0, g: 0, b: 0, alpha: 0 } // Fully transparent
+          channels: 4, 
+          background: { r: 0, g: 0, b: 0, alpha: 1 } 
         }
-      })
-      .png()
-      .toBuffer();
-      
-      // 3. Composite the transparent rectangle over the GIF
+      }).png().toBuffer();
+
       const processedBuffer = await sharp(inputBuffer, { animated: true })
         .composite([
           {
-            input: cutoutBuffer,
+            input: cutoutMask,
             left: crop.x,
             top: crop.y,
-            blend: 'dest-in' // Using dest-in to effectively cut a hole
+            blend: 'dest-out'
           }
         ])
+        .gif()
         .toBuffer();
 
-
-      // 4. Encode the result back to a Data URI
       const croppedGifDataUri = `data:image/gif;base64,${processedBuffer.toString('base64')}`;
 
       return { croppedGifDataUri };

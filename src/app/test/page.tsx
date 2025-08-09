@@ -36,7 +36,7 @@ export default function TestPage() {
   const [imgSrc, setImgSrc] = useState('');
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<Crop>();
-  const [croppedGif, setCroppedGif] = useState<string | null>(null);
+  const [processedGif, setProcessedGif] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const { toast } = useToast();
@@ -45,7 +45,7 @@ export default function TestPage() {
   function onFileChange(e: ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
       setCrop(undefined); // Makes crop preview update between images.
-      setCroppedGif(null);
+      setProcessedGif(null);
       const reader = new FileReader();
       reader.addEventListener('load', () =>
         setImgSrc(reader.result?.toString() || ''),
@@ -59,14 +59,14 @@ export default function TestPage() {
     setCrop(centerAspectCrop(width, height, aspect));
   }
 
-  async function handleCrop() {
+  async function handleProcess() {
     if (!completedCrop || !imgRef.current) {
-      toast({ title: 'No crop selected', description: 'Please select an area to crop.', variant: 'destructive' });
+      toast({ title: 'No area selected', description: 'Please select an area to cut out.', variant: 'destructive' });
       return;
     }
     
     setIsLoading(true);
-    setCroppedGif(null);
+    setProcessedGif(null);
     
     const image = imgRef.current;
     const scaleX = image.naturalWidth / image.width;
@@ -85,22 +85,22 @@ export default function TestPage() {
         crop: cropData,
       });
       if (result.croppedGifDataUri) {
-          setCroppedGif(result.croppedGifDataUri);
+          setProcessedGif(result.croppedGifDataUri);
           toast({ title: 'Success!', description: 'Your GIF has been processed.' });
       } else {
         throw new Error("Processing returned no data.");
       }
     } catch (error) {
       console.error("Error processing GIF:", error);
-      toast({ title: "Processing Failed", description: "The AI could not process the GIF.", variant: "destructive" });
+      toast({ title: "Processing Failed", description: "Could not process the GIF.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   }
 
-  function handleDownloadCropped() {
-    if (!croppedGif) return;
-    saveAs(croppedGif, 'processed.gif');
+  function handleDownloadProcessed() {
+    if (!processedGif) return;
+    saveAs(processedGif, 'processed.gif');
   }
 
   return (
@@ -133,7 +133,7 @@ export default function TestPage() {
                         />
                     </ReactCrop>
                 </div>
-                <Button onClick={handleCrop} disabled={isLoading || !completedCrop}>
+                <Button onClick={handleProcess} disabled={isLoading || !completedCrop}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Cutout Selection
                 </Button>
@@ -142,11 +142,11 @@ export default function TestPage() {
                 <h2 className="text-2xl font-bold">Processed</h2>
                 <div className="p-4 bg-card rounded-lg border shadow-sm w-full h-[300px] flex items-center justify-center">
                     {isLoading && <Loader2 className="h-12 w-12 animate-spin text-primary" />}
-                    {!isLoading && croppedGif && <img alt="Processed GIF" src={croppedGif} className="max-w-full max-h-full" />}
-                    {!isLoading && !croppedGif && <p className="text-muted-foreground">Processed version will appear here</p>}
+                    {!isLoading && processedGif && <img alt="Processed GIF" src={processedGif} className="max-w-full max-h-full" />}
+                    {!isLoading && !processedGif && <p className="text-muted-foreground">Processed version will appear here</p>}
                 </div>
-                {!isLoading && croppedGif && (
-                  <Button onClick={handleDownloadCropped} variant="outline">
+                {!isLoading && processedGif && (
+                  <Button onClick={handleDownloadProcessed} variant="outline">
                     <Download className="mr-2 h-4 w-4" />
                     Download Processed GIF
                   </Button>
