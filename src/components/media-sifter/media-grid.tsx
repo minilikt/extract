@@ -47,7 +47,7 @@ export function MediaGrid({ items, selectedItems, onSelectionChange, isLoading }
           key={`${item.url}-${index}`}
           url={item.url}
           isSelected={selectedItems.has(item.url)}
-          onSelectionChange={() => onSelectionChange(item.url)}
+          onSelectionChange={onSelectionChange}
         />
       ))}
     </div>

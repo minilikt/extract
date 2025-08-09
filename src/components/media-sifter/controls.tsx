@@ -6,6 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, Settings2, FileUp, Trash2, Loader2, CheckSquare, Square } from "lucide-react";
 import { RenameDialog } from './rename-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type FilterType = 'all' | 'image' | 'gif';
 
@@ -17,6 +23,7 @@ interface ControlsProps {
   hasMedia: boolean;
   selectedCount: number;
   totalCount: number;
+  visibleCount: number;
   filter: FilterType;
   onFilterChange: (filter: FilterType) => void;
   renamePattern: string;
@@ -24,6 +31,7 @@ interface ControlsProps {
   csvHeaders: string[];
   fileName: string | null;
   selectAll: () => void;
+  selectAllInFile: () => void;
 }
 
 export function Controls({
@@ -34,6 +42,7 @@ export function Controls({
   hasMedia,
   selectedCount,
   totalCount,
+  visibleCount,
   filter,
   onFilterChange,
   renamePattern,
@@ -41,6 +50,7 @@ export function Controls({
   csvHeaders,
   fileName,
   selectAll,
+  selectAllInFile,
 }: ControlsProps) {
   return (
     <div className="p-4 bg-card rounded-lg border shadow-sm sticky top-4 z-10">
@@ -59,10 +69,21 @@ export function Controls({
         {hasMedia && (
           <>
             <div className="flex-grow flex flex-col sm:flex-row gap-2 items-center justify-center">
-               <Button variant="ghost" size="sm" onClick={selectAll} className="text-muted-foreground">
-                {selectedCount === totalCount && totalCount > 0 ? <CheckSquare className="mr-2" /> : <Square className="mr-2" />}
-                <span>{selectedCount} / {totalCount} selected</span>
-               </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-muted-foreground">
+                      {selectedCount === totalCount && totalCount > 0 ? <CheckSquare className="mr-2" /> : <Square className="mr-2" />}
+                      <span>{selectedCount} / {totalCount} selected</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={selectAll}>Select page ({visibleCount})</DropdownMenuItem>
+                    <DropdownMenuItem onClick={selectAllInFile}>Select all ({totalCount})</DropdownMenuItem>
+                     <DropdownMenuItem onClick={() => selectAllInFile()}>
+                      {selectedCount === totalCount ? 'Deselect all' : `Select all (${totalCount})`}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
             </div>
             
             <Tabs value={filter} onValueChange={(value) => onFilterChange(value as FilterType)}>

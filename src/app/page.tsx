@@ -6,6 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Header } from '@/components/media-sifter/header';
 import { Controls } from '@/components/media-sifter/controls';
 import { MediaGrid } from '@/components/media-sifter/media-grid';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
+
 
 type CsvData = {
   headers: string[];
@@ -20,6 +22,8 @@ type MediaItem = {
 
 type FilterType = 'all' | 'image' | 'gif';
 
+const ITEMS_PER_PAGE = 20;
+
 export default function Home() {
   const [csvData, setCsvData] = useState<CsvData | null>(null);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
@@ -29,6 +33,7 @@ export default function Home() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [renamePattern, setRenamePattern] = useState<string>('image-{id}');
   const [fileName, setFileName] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { toast } = useToast();
 
@@ -57,6 +62,7 @@ export default function Home() {
     setIsLoading(true);
     setFileName(file.name);
     setSelectedItems(new Set());
+    setCurrentPage(1);
 
     try {
       const fileContent = await file.text();
@@ -113,6 +119,18 @@ export default function Home() {
   };
 
   const selectAll = () => {
+    if (selectedItems.size === paginatedMediaItems.length) {
+      setSelectedItems(new Set());
+    } else {
+       // Select only visible items on the current page
+      const currentPageUrls = new Set(paginatedMediaItems.map(item => item.url));
+      const newSelection = new Set(selectedItems);
+      currentPageUrls.forEach(url => newSelection.add(url));
+      setSelectedItems(newSelection);
+    }
+  };
+  
+  const selectAllInFile = () => {
     if (selectedItems.size === filteredMediaItems.length) {
       setSelectedItems(new Set());
     } else {
@@ -181,12 +199,28 @@ export default function Home() {
     setMediaItems([]);
     setSelectedItems(new Set());
     setFileName(null);
+    setCurrentPage(1);
   }
 
   const filteredMediaItems = useMemo(() => {
+    setCurrentPage(1);
     if (filter === 'all') return mediaItems;
     return mediaItems.filter(item => item.type === filter);
   }, [mediaItems, filter]);
+
+  const totalPages = Math.ceil(filteredMediaItems.length / ITEMS_PER_PAGE);
+
+  const paginatedMediaItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredMediaItems.slice(startIndex, endIndex);
+  }, [filteredMediaItems, currentPage]);
+
+  const handlePageChange = (page: number) => {
+    if (page > 0 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
   return (
     <main className="container mx-auto px-4 min-h-screen flex flex-col">
@@ -200,6 +234,7 @@ export default function Home() {
           hasMedia={mediaItems.length > 0}
           selectedCount={selectedItems.size}
           totalCount={filteredMediaItems.length}
+          visibleCount={paginatedMediaItems.length}
           filter={filter}
           onFilterChange={setFilter}
           renamePattern={renamePattern}
@@ -207,13 +242,39 @@ export default function Home() {
           csvHeaders={csvData?.headers || []}
           fileName={fileName}
           selectAll={selectAll}
+          selectAllInFile={selectAllInFile}
         />
         <MediaGrid
-          items={filteredMediaItems}
+          items={paginatedMediaItems}
           selectedItems={selectedItems}
           onSelectionChange={handleSelectionChange}
           isLoading={isLoading}
         />
+        {totalPages > 1 && (
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => handlePageChange(currentPage - 1)} 
+                  aria-disabled={currentPage === 1}
+                  className={currentPage === 1 ? 'pointer-events-none text-muted-foreground' : ''}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                 <PaginationLink isActive>
+                  Page {currentPage} of {totalPages}
+                </PaginationLink>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => handlePageChange(currentPage + 1)} 
+                  aria-disabled={currentPage === totalPages}
+                  className={currentPage === totalPages ? 'pointer-events-none text-muted-foreground' : ''}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
       </div>
     </main>
   );
