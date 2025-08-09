@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import sharp from 'sharp';
 
 const CropGifInputSchema = z.object({
   gifDataUri: z
@@ -36,28 +37,6 @@ export async function cropGif(input: CropGifInput): Promise<CropGifOutput> {
   return cropGifFlow(input);
 }
 
-const cropGifPrompt = ai.definePrompt({
-    name: 'cropGifPrompt',
-    input: { schema: CropGifInputSchema },
-    output: { schema: CropGifOutputSchema },
-    prompt: `You are an expert image editor specializing in animated GIFs. Your task is to crop the provided GIF according to the specified dimensions.
-
-Crop the following GIF:
-{{media url=gifDataUri}}
-
-Crop dimensions (in pixels):
-- X: {{{crop.x}}}
-- Y: {{{crop.y}}}
-- Width: {{{crop.width}}}
-- Height: {{{crop.height}}}
-
-Instructions:
-1.  Precisely crop the GIF to the given dimensions.
-2.  Preserve the animation and all frames of the original GIF.
-3.  Ensure the output is a valid, animated GIF.
-4.  Return the result as a data URI.`,
-});
-
 const cropGifFlow = ai.defineFlow(
   {
     name: 'cropGifFlow',
@@ -65,11 +44,37 @@ const cropGifFlow = ai.defineFlow(
     outputSchema: CropGifOutputSchema,
   },
   async (input) => {
-    const llmResponse = await cropGifPrompt(input);
-    const output = llmResponse.output;
-    if (!output) {
-      throw new Error('Failed to get a response from the model.');
+    try {
+      const { gifDataUri, crop } = input;
+      
+      // 1. Decode the Data URI
+      const base64Data = gifDataUri.split(';base64,').pop();
+      if (!base64Data) {
+        throw new Error('Invalid Data URI format.');
+      }
+      const inputBuffer = Buffer.from(base64Data, 'base64');
+      
+      // 2. Crop the image using sharp
+      const croppedBuffer = await sharp(inputBuffer, { animated: true })
+        .extract({
+          left: crop.x,
+          top: crop.y,
+          width: crop.width,
+          height: crop.height,
+        })
+        .toBuffer();
+
+      // 3. Encode the result back to a Data URI
+      const croppedGifDataUri = `data:image/gif;base64,${croppedBuffer.toString('base64')}`;
+
+      return { croppedGifDataUri };
+
+    } catch (error) {
+        console.error("Error in cropGifFlow:", error);
+        if (error instanceof Error) {
+            throw new Error(`Failed to crop GIF: ${error.message}`);
+        }
+        throw new Error('An unknown error occurred during GIF cropping.');
     }
-    return { croppedGifDataUri: output.croppedGifDataUri };
   }
 );
