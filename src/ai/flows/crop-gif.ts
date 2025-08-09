@@ -1,9 +1,9 @@
 'use server';
 
 /**
- * @fileOverview Cuts out a selected section of an animated GIF, making it transparent.
+ * @fileOverview Cuts out a selected section of an animated GIF.
  *
- * - cropGif - A function that handles the GIF cutout process.
+ * - cropGif - A function that handles the GIF cropping process.
  * - CropGifInput - The input type for the cropGif function.
  * - CropGifOutput - The return type for the cropGif function.
  */
@@ -19,16 +19,16 @@ const CropGifInputSchema = z.object({
       "An animated GIF, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:image/gif;base64,<encoded_data>'."
     ),
   crop: z.object({
-    x: z.number().describe('The x-coordinate of the top-left corner of the cutout area.'),
-    y: z.number().describe('The y-coordinate of the top-left corner of the cutout area.'),
-    width: z.number().describe('The width of the cutout area.'),
-    height: z.number().describe('The height of the cutout area.'),
+    x: z.number().describe('The x-coordinate of the top-left corner of the crop area.'),
+    y: z.number().describe('The y-coordinate of the top-left corner of the crop area.'),
+    width: z.number().describe('The width of the crop area.'),
+    height: z.number().describe('The height of the crop area.'),
   }),
 });
 export type CropGifInput = z.infer<typeof CropGifInputSchema>;
 
 const CropGifOutputSchema = z.object({
-  croppedGifDataUri: z.string().describe('The processed GIF with the cutout as a data URI.'),
+  croppedGifDataUri: z.string().describe('The cropped GIF as a data URI.'),
 });
 export type CropGifOutput = z.infer<typeof CropGifOutputSchema>;
 
@@ -53,24 +53,13 @@ const cropGifFlow = ai.defineFlow(
       }
       const inputBuffer = Buffer.from(base64Data, 'base64');
       
-      const cutoutMask = await sharp({
-        create: {
-          width: crop.width,
-          height: crop.height,
-          channels: 4, 
-          background: { r: 0, g: 0, b: 0, alpha: 1 } 
-        }
-      }).png().toBuffer();
-
       const processedBuffer = await sharp(inputBuffer, { animated: true })
-        .composite([
-          {
-            input: cutoutMask,
+        .extract({
             left: crop.x,
             top: crop.y,
-            blend: 'dest-out'
-          }
-        ])
+            width: crop.width,
+            height: crop.height,
+        })
         .gif()
         .toBuffer();
 
