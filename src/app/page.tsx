@@ -33,7 +33,6 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
-  const [renamePattern, setRenamePattern] = useState<string>('image-{id}');
   const [fileName, setFileName] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -153,6 +152,8 @@ export default function Home() {
     toast({ title: "Starting Download...", description: `Preparing ${selectedItems.size} files for download.` });
 
     const zip = new JSZip();
+    let imageCounter = 1;
+    const hasTitleHeader = csvData?.headers.includes('title');
 
     await Promise.all(Array.from(selectedItems).map(async (url) => {
       try {
@@ -174,12 +175,13 @@ export default function Home() {
             else if (type?.includes('gif')) extension = 'gif';
         }
         
-        let newFileName = renamePattern
-          .replace(/\{([^}]+)\}/g, (match, header) => {
-            return mediaItem.row[header]?.replace(/[^a-zA-Z0-9_.-]/g, '_') || match;
-          })
-          .replace(/\s/g, '_');
-
+        let newFileName;
+        if (hasTitleHeader && mediaItem.row['title']) {
+            newFileName = mediaItem.row['title'].replace(/[^a-zA-Z0-9_.-]/g, '_').replace(/\s/g, '_');
+        } else {
+            newFileName = `image-${imageCounter++}`;
+        }
+        
         zip.file(`${newFileName}.${extension}`, blob);
 
       } catch (error) {
@@ -252,9 +254,6 @@ export default function Home() {
           visibleCount={paginatedMediaItems.length}
           filter={filter}
           onFilterChange={setFilter}
-          renamePattern={renamePattern}
-          onRenamePatternChange={setRenamePattern}
-          csvHeaders={csvData?.headers || []}
           fileName={fileName}
           selectAll={selectAll}
           selectAllInFile={selectAllInFile}

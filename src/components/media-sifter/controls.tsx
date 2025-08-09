@@ -4,8 +4,7 @@ import type { ChangeEvent } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Settings2, FileUp, Trash2, Loader2, CheckSquare, Square } from "lucide-react";
-import { RenameDialog } from './rename-dialog';
+import { Download, FileUp, Trash2, Loader2, CheckSquare, Square } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,9 +25,6 @@ interface ControlsProps {
   visibleCount: number;
   filter: FilterType;
   onFilterChange: (filter: FilterType) => void;
-  renamePattern: string;
-  onRenamePatternChange: (pattern: string) => void;
-  csvHeaders: string[];
   fileName: string | null;
   selectAll: () => void;
   selectAllInFile: () => void;
@@ -45,9 +41,6 @@ export function Controls({
   visibleCount,
   filter,
   onFilterChange,
-  renamePattern,
-  onRenamePatternChange,
-  csvHeaders,
   fileName,
   selectAll,
   selectAllInFile,
@@ -78,8 +71,7 @@ export function Controls({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
                     <DropdownMenuItem onClick={selectAll}>Select page ({visibleCount})</DropdownMenuItem>
-                    <DropdownMenuItem onClick={selectAllInFile}>Select all ({totalCount})</DropdownMenuItem>
-                     <DropdownMenuItem onClick={() => selectAllInFile()}>
+                    <DropdownMenuItem onClick={() => selectAllInFile()}>
                       {selectedCount === totalCount ? 'Deselect all' : `Select all (${totalCount})`}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -95,16 +87,6 @@ export function Controls({
             </Tabs>
             
             <div className="flex gap-2">
-                <RenameDialog
-                    headers={csvHeaders}
-                    pattern={renamePattern}
-                    onPatternChange={onRenamePatternChange}
-                >
-                    <Button variant="outline" size="icon" aria-label="Renaming Settings">
-                        <Settings2 className="h-4 w-4" />
-                    </Button>
-                </RenameDialog>
-
                 <Button onClick={onDownload} disabled={isProcessing || selectedCount === 0} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                     {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                     Download ({selectedCount})
