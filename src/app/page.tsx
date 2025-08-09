@@ -142,6 +142,47 @@ export default function Home() {
     }
   };
 
+  const downloadFile = async (url: string) => {
+    try {
+      const mediaItem = mediaItems.find(item => item.url === url);
+      if (!mediaItem) return;
+
+      const response = await fetch(`/api/download?url=${encodeURIComponent(url)}`);
+      if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+
+      const blob = await response.blob();
+      
+      const originalFileName = url.split('/').pop()?.split('?')[0] || 'download';
+      let extension = originalFileName.split('.').pop() || 'jpg';
+      if (extension.length > 4) { // handle cases with no extension
+          const type = response.headers.get('content-type');
+          if (type?.includes('jpeg') || type?.includes('jpg')) extension = 'jpg';
+          else if (type?.includes('png')) extension = 'png';
+          else if (type?.includes('gif')) extension = 'gif';
+      }
+      
+      let newFileName;
+      const hasTitleHeader = csvData?.headers.includes('title');
+      if (hasTitleHeader && mediaItem.row['title']) {
+          newFileName = mediaItem.row['title'].replace(/[^a-zA-Z0-9_.-]/g, '_').replace(/\s/g, '_');
+      } else {
+          newFileName = url.split('/').pop()?.split('?')[0]?.split('.')[0] || `media-sifter-${Date.now()}`;
+      }
+      
+      saveAs(blob, `${newFileName}.${extension}`);
+      return { success: true, url };
+    } catch (error) {
+      console.error(`Failed to download ${url}:`, error);
+      toast({
+        title: "Download Error",
+        description: `Could not download ${url.substring(0, 50)}...`,
+        variant: "destructive"
+      });
+      return { success: false, url };
+    }
+  };
+
+
   const handleDownload = async () => {
     if (selectedItems.size === 0) {
       toast({ title: "No items selected", description: "Please select images or GIFs to download." });
@@ -149,58 +190,63 @@ export default function Home() {
     }
     
     setIsDownloading(true);
-    toast({ title: "Starting Download...", description: `Preparing ${selectedItems.size} files for download.` });
+    toast({ title: "Starting Download...", description: `Preparing ${selectedItems.size} file(s) for download.` });
 
-    const zip = new JSZip();
-    let imageCounter = 1;
-    const hasTitleHeader = csvData?.headers.includes('title');
-
-    await Promise.all(Array.from(selectedItems).map(async (url) => {
-      try {
-        const mediaItem = mediaItems.find(item => item.url === url);
-        if (!mediaItem) return;
-
-        // Use our server-side proxy to fetch to avoid CORS issues.
-        const response = await fetch(`/api/download?url=${encodeURIComponent(url)}`);
-        if (!response.ok) throw new Error(`Failed to fetch ${url}`);
-
-        const blob = await response.blob();
-        
-        const originalFileName = url.split('/').pop()?.split('?')[0] || 'download';
-        let extension = originalFileName.split('.').pop() || 'jpg';
-        if (extension.length > 4) { // handle cases with no extension
-            const type = response.headers.get('content-type');
-            if (type?.includes('jpeg') || type?.includes('jpg')) extension = 'jpg';
-            else if (type?.includes('png')) extension = 'png';
-            else if (type?.includes('gif')) extension = 'gif';
-        }
-        
-        let newFileName;
-        if (hasTitleHeader && mediaItem.row['title']) {
-            newFileName = mediaItem.row['title'].replace(/[^a-zA-Z0-9_.-]/g, '_').replace(/\s/g, '_');
-        } else {
-            newFileName = `image-${imageCounter++}`;
-        }
-        
-        zip.file(`${newFileName}.${extension}`, blob);
-
-      } catch (error) {
-        console.error(`Failed to download ${url}:`, error);
-        toast({
-          title: "Download Error",
-          description: `Could not download ${url.substring(0, 50)}...`,
-          variant: "destructive"
-        });
-      }
-    }));
-    
-    if (Object.keys(zip.files).length > 0) {
-        zip.generateAsync({type:"blob"}).then(function(content) {
-            saveAs(content, "mediasifter-download.zip");
-        });
-        toast({ title: "Download Complete", description: `All selected files have been zipped for download.` });
+    if (selectedItems.size === 1) {
+      const url = Array.from(selectedItems)[0];
+      await downloadFile(url);
     } else {
-        toast({ title: "Download Failed", description: "Could not download any of the selected files." , variant: 'destructive'});
+      const zip = new JSZip();
+      let imageCounter = 1;
+      const hasTitleHeader = csvData?.headers.includes('title');
+
+      await Promise.all(Array.from(selectedItems).map(async (url) => {
+        try {
+          const mediaItem = mediaItems.find(item => item.url === url);
+          if (!mediaItem) return;
+
+          // Use our server-side proxy to fetch to avoid CORS issues.
+          const response = await fetch(`/api/download?url=${encodeURIComponent(url)}`);
+          if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+
+          const blob = await response.blob();
+          
+          const originalFileName = url.split('/').pop()?.split('?')[0] || 'download';
+          let extension = originalFileName.split('.').pop() || 'jpg';
+          if (extension.length > 4) { // handle cases with no extension
+              const type = response.headers.get('content-type');
+              if (type?.includes('jpeg') || type?.includes('jpg')) extension = 'jpg';
+              else if (type?.includes('png')) extension = 'png';
+              else if (type?.includes('gif')) extension = 'gif';
+          }
+          
+          let newFileName;
+          if (hasTitleHeader && mediaItem.row['title']) {
+              newFileName = mediaItem.row['title'].replace(/[^a-zA-Z0-9_.-]/g, '_').replace(/\s/g, '_');
+          } else {
+              newFileName = `image-${imageCounter++}`;
+          }
+          
+          zip.file(`${newFileName}.${extension}`, blob);
+
+        } catch (error) {
+          console.error(`Failed to download ${url}:`, error);
+          toast({
+            title: "Download Error",
+            description: `Could not download ${url.substring(0, 50)}...`,
+            variant: "destructive"
+          });
+        }
+      }));
+      
+      if (Object.keys(zip.files).length > 0) {
+          zip.generateAsync({type:"blob"}).then(function(content) {
+              saveAs(content, "mediasifter-download.zip");
+          });
+          toast({ title: "Download Complete", description: `All selected files have been zipped for download.` });
+      } else {
+          toast({ title: "Download Failed", description: "Could not download any of the selected files." , variant: 'destructive'});
+      }
     }
     
     setIsDownloading(false);
