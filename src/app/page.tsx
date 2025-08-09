@@ -122,16 +122,18 @@ export default function Home() {
     });
   };
 
-  const selectAll = () => {
-    if (selectedItems.size === paginatedMediaItems.length) {
-      setSelectedItems(new Set());
-    } else {
-       // Select only visible items on the current page
-      const currentPageUrls = new Set(paginatedMediaItems.map(item => item.url));
-      const newSelection = new Set(selectedItems);
-      currentPageUrls.forEach(url => newSelection.add(url));
-      setSelectedItems(newSelection);
-    }
+  const selectAllOnPage = () => {
+    const currentPageUrls = new Set(paginatedMediaItems.map(item => item.url));
+    const newSelection = new Set(selectedItems);
+    currentPageUrls.forEach(url => newSelection.add(url));
+    setSelectedItems(newSelection);
+  };
+  
+  const deselectAllOnPage = () => {
+    const currentPageUrls = new Set(paginatedMediaItems.map(item => item.url));
+    const newSelection = new Set(selectedItems);
+    currentPageUrls.forEach(url => newSelection.delete(url));
+    setSelectedItems(newSelection);
   };
   
   const selectAllInFile = () => {
@@ -284,6 +286,11 @@ export default function Home() {
       setCurrentPage(page);
     }
   };
+  
+  const numSelectedOnPage = useMemo(() => {
+      const pageUrls = new Set(paginatedMediaItems.map(item => item.url));
+      return Array.from(selectedItems).filter(url => pageUrls.has(url)).length;
+  }, [selectedItems, paginatedMediaItems]);
 
   return (
     <main className="container mx-auto px-4 min-h-screen flex flex-col">
@@ -297,12 +304,14 @@ export default function Home() {
           hasMedia={mediaItems.length > 0}
           selectedCount={selectedItems.size}
           totalCount={filteredMediaItems.length}
-          visibleCount={paginatedMediaItems.length}
+          numSelectedOnPage={numSelectedOnPage}
           filter={filter}
           onFilterChange={setFilter}
           fileName={fileName}
-          selectAll={selectAll}
+          selectAllOnPage={selectAllOnPage}
+          deselectAllOnPage={deselectAllOnPage}
           selectAllInFile={selectAllInFile}
+          isAllOnPageSelected={numSelectedOnPage === paginatedMediaItems.length && paginatedMediaItems.length > 0}
         />
         <MediaGrid
           items={paginatedMediaItems}

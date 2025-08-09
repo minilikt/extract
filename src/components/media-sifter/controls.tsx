@@ -4,7 +4,7 @@ import type { ChangeEvent } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, FileUp, Trash2, Loader2, CheckSquare, Square } from "lucide-react";
+import { Download, FileUp, Trash2, Loader2, CheckSquare, Square, XSquare } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,12 +22,14 @@ interface ControlsProps {
   hasMedia: boolean;
   selectedCount: number;
   totalCount: number;
-  visibleCount: number;
+  numSelectedOnPage: number;
   filter: FilterType;
   onFilterChange: (filter: FilterType) => void;
   fileName: string | null;
-  selectAll: () => void;
+  selectAllOnPage: () => void;
+  deselectAllOnPage: () => void;
   selectAllInFile: () => void;
+  isAllOnPageSelected: boolean;
 }
 
 export function Controls({
@@ -38,12 +40,14 @@ export function Controls({
   hasMedia,
   selectedCount,
   totalCount,
-  visibleCount,
+  numSelectedOnPage,
   filter,
   onFilterChange,
   fileName,
-  selectAll,
+  selectAllOnPage,
+  deselectAllOnPage,
   selectAllInFile,
+  isAllOnPageSelected,
 }: ControlsProps) {
   return (
     <div className="p-4 bg-card rounded-lg border shadow-sm sticky top-4 z-10">
@@ -70,9 +74,18 @@ export function Controls({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    <DropdownMenuItem onClick={selectAll}>Select page ({visibleCount})</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => selectAllInFile()}>
-                      {selectedCount === totalCount ? 'Deselect all' : `Select all (${totalCount})`}
+                     {isAllOnPageSelected ? (
+                      <DropdownMenuItem onClick={deselectAllOnPage}>
+                        <XSquare className="mr-2 h-4 w-4" /> Deselect Page
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onClick={selectAllOnPage}>
+                        <CheckSquare className="mr-2 h-4 w-4" /> Select Page
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={selectAllInFile}>
+                      {selectedCount === totalCount ? <XSquare className="mr-2 h-4 w-4" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+                      {selectedCount === totalCount ? 'Deselect All' : `Select All (${totalCount})`}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
