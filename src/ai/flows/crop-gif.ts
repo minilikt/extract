@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const CropGifInputSchema = z.object({
+const CropGifInputSchema = z.object({
   gifDataUri: z
     .string()
     .describe(
@@ -66,7 +66,7 @@ const cropGifFlow = ai.defineFlow(
   },
   async (input) => {
     const llmResponse = await cropGifPrompt(input);
-    const output = llmResponse.output();
+    const output = llmResponse.output;
     if (!output) {
       throw new Error('Failed to get a response from the model.');
     }
