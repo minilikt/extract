@@ -5,9 +5,10 @@ import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from 'react-image-cr
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Header } from '@/components/media-sifter/header';
-import { Loader2 } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { cropGif } from '@/ai/flows/crop-gif';
 import { useToast } from "@/hooks/use-toast";
+import { saveAs } from 'file-saver';
 
 import 'react-image-crop/dist/ReactCrop.css';
 
@@ -97,6 +98,11 @@ export default function TestPage() {
     }
   }
 
+  function handleDownloadCropped() {
+    if (!croppedGif) return;
+    saveAs(croppedGif, 'cropped.gif');
+  }
+
   return (
     <main className="container mx-auto px-4 min-h-screen flex flex-col">
        <Header />
@@ -139,6 +145,12 @@ export default function TestPage() {
                     {!isLoading && croppedGif && <img alt="Cropped GIF" src={croppedGif} className="max-w-full max-h-full" />}
                     {!isLoading && !croppedGif && <p className="text-muted-foreground">Cropped version will appear here</p>}
                 </div>
+                {!isLoading && croppedGif && (
+                  <Button onClick={handleDownloadCropped} variant="outline">
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Cropped GIF
+                  </Button>
+                )}
             </div>
           </div>
         )}
