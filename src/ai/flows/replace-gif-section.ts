@@ -15,7 +15,7 @@ import gifFrames from 'gif-frames';
 import GifEncoder from 'gif-encoder-2';
 import { Readable } from 'stream';
 
-export const ReplaceGifSectionInputSchema = z.object({
+const ReplaceGifSectionInputSchema = z.object({
   gifDataUri: z
     .string()
     .describe(

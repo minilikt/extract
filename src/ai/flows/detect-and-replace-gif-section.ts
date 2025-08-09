@@ -10,7 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import { replaceGifSection, ReplaceGifSectionInputSchema } from './replace-gif-section';
+import { replaceGifSection, type ReplaceGifSectionInput } from './replace-gif-section';
 import sharp from 'sharp';
 import gifFrames from 'gif-frames';
 import { Readable } from 'stream';
@@ -31,6 +31,21 @@ const DetectAndReplaceGifSectionOutputSchema = z.object({
   processedGifDataUri: z.string().describe('The processed GIF as a data URI.'),
 });
 export type DetectAndReplaceGifSectionOutput = z.infer<typeof DetectAndReplaceGifSectionOutputSchema>;
+
+// This schema is now defined here, instead of being imported.
+const ReplaceGifSectionInputSchema = z.object({
+  gifDataUri: z
+    .string()
+    .describe(
+      "An animated GIF, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:image/gif;base64,<encoded_data>'"
+    ),
+  replacementArea: z.object({
+    x: z.number().describe('The x-coordinate of the top-left corner of the area to replace.'),
+    y: z.number().describe('The y-coordinate of the top-left corner of the area to replace.'),
+    width: z.number().describe('The width of the area to replace.'),
+    height: z.number().describe('The height of the area to replace.'),
+  }),
+});
 
 
 const BoundingBoxSchema = z.object({
@@ -107,7 +122,8 @@ const detectAndReplaceFlow = ai.defineFlow(
     }
 
     // Step 3: Call the existing replacement flow with the detected coordinates.
-    const result = await replaceGifSection({
+    // The type `ReplaceGifSectionInput` is now imported, not the schema.
+    const replacementInput: ReplaceGifSectionInput = {
         gifDataUri: input.gifDataUri,
         replacementArea: {
             x: boundingBox.x,
@@ -115,7 +131,9 @@ const detectAndReplaceFlow = ai.defineFlow(
             width: boundingBox.width,
             height: boundingBox.height
         }
-    });
+    };
+
+    const result = await replaceGifSection(replacementInput);
 
     return { processedGifDataUri: result.processedGifDataUri };
   }
