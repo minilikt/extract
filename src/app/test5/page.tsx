@@ -93,23 +93,41 @@ export default function ColorReplacerTestPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                   <Label htmlFor="source-color">2. Color to Replace</Label>
-                  <Input 
-                    id="source-color" 
-                    type="color" 
-                    value={sourceColor} 
-                    onChange={(e) => setSourceColor(e.target.value)}
-                    className="h-12"
-                   />
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      id="source-color" 
+                      type="color" 
+                      value={sourceColor} 
+                      onChange={(e) => setSourceColor(e.target.value)}
+                      className="h-10 w-12 p-1"
+                    />
+                    <Input
+                      type="text"
+                      value={sourceColor}
+                      onChange={(e) => setSourceColor(e.target.value)}
+                      className="h-10 flex-1"
+                      aria-label="Source color hex value"
+                    />
+                  </div>
               </div>
                <div className="space-y-2">
                   <Label htmlFor="target-color">3. New Color</Label>
-                  <Input 
-                    id="target-color" 
-                    type="color" 
-                    value={targetColor}
-                    onChange={(e) => setTargetColor(e.target.value)}
-                    className="h-12"
-                   />
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      id="target-color" 
+                      type="color" 
+                      value={targetColor}
+                      onChange={(e) => setTargetColor(e.target.value)}
+                      className="h-10 w-12 p-1"
+                    />
+                    <Input
+                      type="text"
+                      value={targetColor}
+                      onChange={(e) => setTargetColor(e.target.value)}
+                      className="h-10 flex-1"
+                      aria-label="Target color hex value"
+                    />
+                  </div>
               </div>
             </div>
             
