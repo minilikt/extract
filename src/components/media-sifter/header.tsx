@@ -13,6 +13,7 @@ export function Header() {
         <Link href="/test" className="text-sm font-medium text-muted-foreground hover:text-primary">Manual GIF Editor</Link>
         <Link href="/test/auto" className="text-sm font-medium text-muted-foreground hover:text-primary">AI GIF Editor</Link>
         <Link href="/test2" className="text-sm font-medium text-muted-foreground hover:text-primary">Automatic Editor</Link>
+        <Link href="/test/chat" className="text-sm font-medium text-muted-foreground hover:text-primary">Chat GIF Editor</Link>
       </nav>
     </header>
   );
