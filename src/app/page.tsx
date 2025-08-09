@@ -7,6 +7,8 @@ import { Header } from '@/components/media-sifter/header';
 import { Controls } from '@/components/media-sifter/controls';
 import { MediaGrid } from '@/components/media-sifter/media-grid';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 
 type CsvData = {
@@ -82,11 +84,14 @@ export default function Home() {
       }
       
       const newMediaItems: MediaItem[] = [];
+      const seenUrls = new Set<string>();
       result.mediaUrls.forEach(url => {
+        if (seenUrls.has(url)) return;
         const foundRow = parsedData.rows.find(row => Object.values(row).includes(url));
         if (foundRow) {
           const type = url.toLowerCase().endsWith('.gif') ? 'gif' : 'image';
           newMediaItems.push({ url, row: foundRow, type });
+          seenUrls.add(url);
         }
       });
       setMediaItems(newMediaItems);
@@ -147,24 +152,27 @@ export default function Home() {
     setIsDownloading(true);
     toast({ title: "Starting Download...", description: `Preparing ${selectedItems.size} files for download.` });
 
-    for (const url of selectedItems) {
+    const zip = new JSZip();
+
+    await Promise.all(Array.from(selectedItems).map(async (url) => {
       try {
         const mediaItem = mediaItems.find(item => item.url === url);
-        if (!mediaItem) continue;
+        if (!mediaItem) return;
 
-        // Use a proxy to fetch to avoid CORS issues. Note: this is a placeholder.
-        // In a real app, you would set up a server-side proxy.
-        const response = await fetch(url);
+        // Use our server-side proxy to fetch to avoid CORS issues.
+        const response = await fetch(`/api/download?url=${encodeURIComponent(url)}`);
         if (!response.ok) throw new Error(`Failed to fetch ${url}`);
 
         const blob = await response.blob();
-        const objectUrl = URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = objectUrl;
-
+        
         const originalFileName = url.split('/').pop()?.split('?')[0] || 'download';
-        const extension = originalFileName.split('.').pop() || 'jpg';
+        let extension = originalFileName.split('.').pop() || 'jpg';
+        if (extension.length > 4) { // handle cases with no extension
+            const type = response.headers.get('content-type');
+            if (type?.includes('jpeg') || type?.includes('jpg')) extension = 'jpg';
+            else if (type?.includes('png')) extension = 'png';
+            else if (type?.includes('gif')) extension = 'gif';
+        }
         
         let newFileName = renamePattern
           .replace(/\{([^}]+)\}/g, (match, header) => {
@@ -172,13 +180,7 @@ export default function Home() {
           })
           .replace(/\s/g, '_');
 
-        link.download = `${newFileName}.${extension}`;
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(objectUrl);
-        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay between downloads
+        zip.file(`${newFileName}.${extension}`, blob);
 
       } catch (error) {
         console.error(`Failed to download ${url}:`, error);
@@ -188,10 +190,18 @@ export default function Home() {
           variant: "destructive"
         });
       }
+    }));
+    
+    if (Object.keys(zip.files).length > 0) {
+        zip.generateAsync({type:"blob"}).then(function(content) {
+            saveAs(content, "mediasifter-download.zip");
+        });
+        toast({ title: "Download Complete", description: `All selected files have been zipped for download.` });
+    } else {
+        toast({ title: "Download Failed", description: "Could not download any of the selected files." , variant: 'destructive'});
     }
     
     setIsDownloading(false);
-    toast({ title: "Download Complete", description: "All selected files have been downloaded." });
   };
   
   const handleClear = () => {
@@ -203,7 +213,6 @@ export default function Home() {
   }
 
   const filteredMediaItems = useMemo(() => {
-    setCurrentPage(1);
     if (filter === 'all') return mediaItems;
     return mediaItems.filter(item => item.type === filter);
   }, [mediaItems, filter]);
@@ -215,6 +224,12 @@ export default function Home() {
     const endIndex = startIndex + ITEMS_PER_PAGE;
     return filteredMediaItems.slice(startIndex, endIndex);
   }, [filteredMediaItems, currentPage]);
+  
+  // Reset page to 1 when filter changes
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
 
   const handlePageChange = (page: number) => {
     if (page > 0 && page <= totalPages) {
