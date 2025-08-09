@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Header } from '@/components/media-sifter/header';
 import { Download, Loader2 } from 'lucide-react';
-import { cropGif } from '@/ai/flows/crop-gif';
+import { replaceGifSection } from '@/ai/flows/replace-gif-section';
 import { useToast } from "@/hooks/use-toast";
 import { saveAs } from 'file-saver';
 
@@ -72,7 +72,7 @@ export default function TestPage() {
     const scaleX = image.naturalWidth / image.width;
     const scaleY = image.naturalHeight / image.height;
 
-    const cropData = {
+    const replacementArea = {
       x: Math.round(completedCrop.x * scaleX),
       y: Math.round(completedCrop.y * scaleY),
       width: Math.round(completedCrop.width * scaleX),
@@ -80,12 +80,12 @@ export default function TestPage() {
     };
 
     try {
-      const result = await cropGif({
+      const result = await replaceGifSection({
         gifDataUri: imgSrc,
-        crop: cropData,
+        replacementArea: replacementArea,
       });
-      if (result.croppedGifDataUri) {
-          setProcessedGif(result.croppedGifDataUri);
+      if (result.processedGifDataUri) {
+          setProcessedGif(result.processedGifDataUri);
           toast({ title: 'Success!', description: 'Your GIF has been processed.' });
       } else {
         throw new Error("Processing returned no data.");

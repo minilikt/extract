@@ -3,9 +3,9 @@
 /**
  * @fileOverview Replaces a selected section of an animated GIF with a white box.
  *
- * - cropGif - A function that handles the GIF modification process.
- * - CropGifInput - The input type for the cropGif function.
- * - CropGifOutput - The return type for the cropGif function.
+ * - replaceGifSection - A function that handles the GIF modification process.
+ * - ReplaceGifSectionInput - The input type for the replaceGifSection function.
+ * - ReplaceGifSectionOutput - The return type for the replaceGifSection function.
  */
 
 import {ai} from '@/ai/genkit';
@@ -15,25 +15,25 @@ import gifFrames from 'gif-frames';
 import GifEncoder from 'gif-encoder-2';
 import { Readable } from 'stream';
 
-const CropGifInputSchema = z.object({
+export const ReplaceGifSectionInputSchema = z.object({
   gifDataUri: z
     .string()
     .describe(
       "An animated GIF, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:image/gif;base64,<encoded_data>'"
     ),
-  crop: z.object({
-    x: z.number().describe('The x-coordinate of the top-left corner of the crop area.'),
-    y: z.number().describe('The y-coordinate of the top-left corner of the crop area.'),
-    width: z.number().describe('The width of the crop area.'),
-    height: z.number().describe('The height of the crop area.'),
+  replacementArea: z.object({
+    x: z.number().describe('The x-coordinate of the top-left corner of the area to replace.'),
+    y: z.number().describe('The y-coordinate of the top-left corner of the area to replace.'),
+    width: z.number().describe('The width of the area to replace.'),
+    height: z.number().describe('The height of the area to replace.'),
   }),
 });
-export type CropGifInput = z.infer<typeof CropGifInputSchema>;
+export type ReplaceGifSectionInput = z.infer<typeof ReplaceGifSectionInputSchema>;
 
-const CropGifOutputSchema = z.object({
-  croppedGifDataUri: z.string().describe('The processed GIF as a data URI.'),
+const ReplaceGifSectionOutputSchema = z.object({
+  processedGifDataUri: z.string().describe('The processed GIF as a data URI.'),
 });
-export type CropGifOutput = z.infer<typeof CropGifOutputSchema>;
+export type ReplaceGifSectionOutput = z.infer<typeof ReplaceGifSectionOutputSchema>;
 
 // Helper to convert a Readable stream to a Buffer
 function streamToBuffer(stream: Readable): Promise<Buffer> {
@@ -46,19 +46,19 @@ function streamToBuffer(stream: Readable): Promise<Buffer> {
 }
 
 
-export async function cropGif(input: CropGifInput): Promise<CropGifOutput> {
-  return cropGifFlow(input);
+export async function replaceGifSection(input: ReplaceGifSectionInput): Promise<ReplaceGifSectionOutput> {
+  return replaceGifSectionFlow(input);
 }
 
-const cropGifFlow = ai.defineFlow(
+const replaceGifSectionFlow = ai.defineFlow(
   {
-    name: 'cropGifFlow',
-    inputSchema: CropGifInputSchema,
-    outputSchema: CropGifOutputSchema,
+    name: 'replaceGifSectionFlow',
+    inputSchema: ReplaceGifSectionInputSchema,
+    outputSchema: ReplaceGifSectionOutputSchema,
   },
   async (input) => {
     try {
-      const { gifDataUri, crop } = input;
+      const { gifDataUri, replacementArea } = input;
       
       const base64Data = gifDataUri.split(';base64,').pop();
       if (!base64Data) {
@@ -67,7 +67,7 @@ const cropGifFlow = ai.defineFlow(
       const inputBuffer = Buffer.from(base64Data, 'base64');
       
       const whiteRectangle = Buffer.from(
-        `<svg><rect x="0" y="0" width="${crop.width}" height="${crop.height}" fill="white" /></svg>`
+        `<svg><rect x="0" y="0" width="${replacementArea.width}" height="${replacementArea.height}" fill="white" /></svg>`
       );
 
       const frameData = await gifFrames({ url: inputBuffer, frames: 'all', outputType: 'png', cumulative: true });
@@ -87,8 +87,8 @@ const cropGifFlow = ai.defineFlow(
             .composite([
                 {
                     input: whiteRectangle,
-                    top: crop.y,
-                    left: crop.x,
+                    top: replacementArea.y,
+                    left: replacementArea.x,
                 },
             ])
             .raw()
@@ -101,12 +101,12 @@ const cropGifFlow = ai.defineFlow(
       encoder.finish();
       const processedBuffer = encoder.out.getData();
       
-      const croppedGifDataUri = `data:image/gif;base64,${processedBuffer.toString('base64')}`;
+      const processedGifDataUri = `data:image/gif;base64,${processedBuffer.toString('base64')}`;
 
-      return { croppedGifDataUri };
+      return { processedGifDataUri };
 
     } catch (error) {
-        console.error("Error in cropGifFlow:", error);
+        console.error("Error in replaceGifSectionFlow:", error);
         if (error instanceof Error) {
             throw new Error(`Failed to process GIF: ${error.message}`);
         }
