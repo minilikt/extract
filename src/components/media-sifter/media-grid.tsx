@@ -42,9 +42,9 @@ export function MediaGrid({ items, selectedItems, onSelectionChange, isLoading }
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 animate-in fade-in-50">
-      {items.map((item) => (
+      {items.map((item, index) => (
         <MediaCard
-          key={item.url}
+          key={`${item.url}-${index}`}
           url={item.url}
           isSelected={selectedItems.has(item.url)}
           onSelectionChange={() => onSelectionChange(item.url)}
